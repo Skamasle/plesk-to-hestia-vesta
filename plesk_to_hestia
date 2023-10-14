@@ -1,0 +1,215 @@
+#!/bin/bash
+# Sk-Plesk-Migrator  v0.1
+# By Maksim Usmanov
+# Run By Your OWN RISK ALPHA RELEASE
+
+SSHPORT=22 # TODO need fix $RSYNC line40 appers not working with quotes inside
+PANEL=hestia
+PANELBIN=/usr/local/${PANEL}/bin/
+# We will create some dirs there, 
+# You need have space here
+BACKUPDIR=/root/vehe-backup.tmp
+GREEN=$(tput setaf 2)
+RED=$(tput setaf 1)
+YELL=$(tput setaf 3)
+COLOROFF=$(tput sgr0)
+
+TIME=$(date +%T)
+DATE=$(date +%F)
+
+help () {
+    printf "%s This script need  min 3 argumets%s \n" $RED $COLOROFF
+    printf "bash %s transfer DOMAIN.TLD-OF-PLesk-SUSCRIPTION IP USER  \n"  $0
+    printf "USER is the user account in destination panel when you whant migrate your data\n"  
+}
+if [[ ! $# -eq 4 ]]; then
+    help
+fi
+if [[ $1 == transfer ]] && [[ ! -e /etc/psa/.psa.shadow ]]; then
+    # TODO Need extra check plesk compatibilidaty may not works in v12 ( grep /usr/local/psa/version and check version)
+    printf "%sBackup only suported inside plesk server v17+ %s\n" $RED $COLOROFF 
+fi 
+PLESKSUS=$2
+IP=$3
+USER=$4
+
+SSH="ssh -p $SSHPORT -oStrictHostKeyChecking=no -oConnectTimeout=10 -oBatchMode=yes root@${IP}"
+RSYNC="rsync -av"
+
+CHECK_STATUS(){
+STATUS=$1 # STATUS CODE
+FUNC=$2  # WHAT Happen..
+WHAT=$3 # Some times need check if exists and sometimes if not send YES or NO
+if [[ $WHAT == NO ]]; then
+    CODE=1
+else
+    CODE=0
+fi
+if [[ $STATUS == $CODE ]]; then
+    printf "%sNo errors for %s %s\n" $GREEN $FUNC $COLOROFF
+else
+    printf "%s.:ERROR:. in %s %s\n" $RED $FUNC $COLOROFF
+    if [[ $FUNC == CHECK-REMOTE-USER ]]; then
+        prinf "%sUser %s exists in %s %s \n" $RED $USER $IP $COLOROFF
+        exit 0
+    fi
+fi
+}
+GEN_PASS() {
+    MATRIX='0123456789ABCDEFGHIJKLMNOP@QRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+    LENGTH=10
+    while [ ${n:=1} -le $LENGTH ]; do
+        PASS="$PASS${MATRIX:$(($RANDOM%${#MATRIX})):1}"
+        let n+=1
+    done
+    PASS=$(echo $PASS)
+
+}
+
+HEVE_DB() {
+USER=$1
+PLESKDB="mysql -u admin -p$(cat /etc/psa/.psa.shadow) -N -e"
+mkdir -p $BACKUPDIR/${PLESKSUS}/DBS
+DBS=$(plesk db "select db.name as 'Database',d.name as 'Subscription',c.pname as 'Owner',c.login as 'Customer Username' from data_bases db,domains d,clients c where d.cl_id=c.id and db.dom_id=d.id" | awk -v PLESKSUS=$PLESKSUS '$4 == PLESKSUS { print $2 }')
+printf "%s\n###########\nStart Databases Backups\n###########%s\n" $YELL $COLOROFF
+for DB in $DBS
+do
+    printf "Dump database %s\n" $DB
+    #BAD NEWS dump -n remove CREATE DATABASE Option but not USE DATABASE
+    # So as we need change database name in remote server we need
+    # fix that with sed after I not found any option to remove --databases from db dump ( we can use mysqldump directly )
+    plesk db dump -n $DB > $BACKUPDIR/${PLESKSUS}/DBS/${USER}_${DB}
+    sed -i "/^USE.*;$/d" $BACKUPDIR/${PLESKSUS}/DBS/${USER}_${DB}
+    CHECK_STATUS $? "DUMP-DATABASE" "YES"
+    # Get user and password for database: 
+    # SELECT user FROM mysql.db WHERE db = "$DB";
+    DBUSER=$($PLESKDB "SELECT user FROM mysql.db WHERE db = '$DB'";)
+    # TODO User Count easy to do, irrelevant for usage but good for statistics
+    DBPASS=$($PLESKDB "SELECT Password FROM mysql.user where User='$DBUSER'";)
+    printf "DB='%s_%s' DBUSER='%s_%s' MD5='%s' HOST='localhost' TYPE='mysql' CHARSET='UTF8' U_DISK='0' SUSPENDED='no' TIME='%s' DATE='%s'\n" "$USER" "$DB" "$USER" "$DBUSER" "$DBPASS" "$TIME" "$DATE" >> "$BACKUPDIR/${PLESKSUS}/DBS/db.conf"
+    
+done
+printf "%sCopy db.conf to remote%s\n" $GREEN $COLOROFF
+$RSYNC $BACKUPDIR/${PLESKSUS}/DBS/db.conf root@${IP}:/usr/local/${PANEL}/data/users/${USER}/db.conf
+$SSH ${PANELBIN}v-rebuild-databases $USER
+rm -f $BACKUPDIR/${PLESKSUS}/DBS/db.conf
+printf "%s.:Trasfering and Restoring databases:.%s\n" $GREEN $COLOROFF
+$SSH mkdir -p /root/tmp_heve_trasnfer
+CHECK_STATUS $? "CREATE_TMP_DB_DIR_REMOTE" "YES"
+for DB in $DBS
+do
+    printf "%sCopy %s Database%s\n" $GREEN $DB $COLOROFF
+    $RSYNC --progress -e "ssh -p $SSHPORT" $BACKUPDIR/${PLESKSUS}/DBS/${USER}_${DB} root@${IP}:/root/tmp_heve_trasnfer
+    printf "%sRestore %s Database%s\n" $GREEN $DB $COLOROFF
+   # DB=$(echo ${USER}_${DB} ) # fixed problem with ssh import
+    $SSH "mysql ${USER}_${DB}  < /root/tmp_heve_trasnfer/${USER}_${DB} "
+    CHECK_STATUS $? "RESTORE_DATABASE" "YES"
+    $SSH rm -f /root/tmp_heve_trasnfer/${USER}_${DB}
+done
+# Need extra rebuild, investigating why with first one password not working
+$SSH ${PANELBIN}v-rebuild-databases $USER
+#### TODO fix most common CMS configuration files..
+}
+
+HEVE_MAIL() {
+MAILSIN=/var/qmail/mailnames/
+EMAILS=$(plesk bin mail -l |awk -v PLESKSUS="$PLESKSUS" '$3 ~ "@"domain { print $3 }')
+printf "%s\n###########\nStart with eMail accounts\n###########%s\n" $YELL $COLOROFF
+for EMAIL in $EMAILS
+do
+    USERMAIL=$(echo $EMAIL | awk -F '@' '{ print $1 }')
+    EMAILPASS=$(/usr/local/psa/admin/bin/mail_auth_view | awk -v EMAIL="$EMAIL" '$2 ~ EMAIL { print $5 }')
+    printf "Creating %s\n" $EMAIL
+    $SSH "${PANELBIN}v-add-mail-account $USER $PLESKSUS  $USERMAIL $EMAILPASS"
+    CHECK_STATUS $? "CREATE-EMAIL-ACCOUNT" "YES"
+    #/home/tr43dsd/mail/barcelonabeach.net/fortls
+    $RSYNC ${MAILSIN}${PLESKSUS}/${USERMAIL}/Maildir/ root@${IP}:/home/${USER}/mail/${PLESKSUS}/${USERMAIL}/ 2>&1 | 
+    while read sk_file_dm; do
+        sk_sync=$((sk_sync+1))
+        echo -en "-- $sk_sync restored mails\r"
+    done
+    echo " "
+    $SSH "chown ${USER}:mail /home/${USER}/mail/${PLESKSUS}/${USERMAIL}/ -R"
+done
+}
+
+HEVE_DOMAIN(){
+printf "%s\n###########\nStart with websites\n###########%s\n" $YELL $COLOROFF
+printf "%sAdding domain %s in remote server%s\n" $GREEN $PLESKSUS $COLOROFF
+$SSH ${PANELBIN}v-add-domain $USER $PLESKSUS
+CHECK_STATUS $? "ADD-REMOTE-DOMAIN" "YES"
+printf "%sCopy Files from %s %s\n" $GREEN $FILESIN $COLOROFF
+$RSYNC $FILESIN/ root@${IP}:/home/${USER}/web/${PLESKSUS}/public_html 2>&1 | 
+    while read sk_file_dm; do
+        sk_sync=$((sk_sync+1))
+        echo -en "-- $sk_sync restored files\r"
+    done
+    echo " "
+
+}
+
+TRANSFER () {
+if ! plesk bin subscription --list |grep -w $PLESKSUS ; then
+    printf "%s.:ERROR:. subscription %s not found in this server %s \n" $RED $PLESKSUS $COLOROFF
+    exit 2
+fi
+printf "%sGet some information from plesk%s\n" $YELL $COLOROFF
+#Get document root
+FILESIN=$(plesk bin subscription --info $PLESKSUS |awk ' $1 == "--WWW-Root--:" { print $2 }')
+printf "We will backup files of %s from %s\n" $PLESKSUS $FILESIN
+
+printf "%s.:CHECK FOR DATABASES:. %s\n" $GREEN $COLOROFF
+DBSCOUNT=$(plesk bin subscription --info $PLESKSUS |grep -A2 Databases | awk '$1 == "Total" { print $3 }')
+#Get database list created in subscription
+
+printf "FOUND %s databases in %s subscription\n" $DBSCOUNT $PLESKSUS
+
+printf "%s.:CHECK FOR EMAILS:. %s\n" $GREEN $COLOROFF
+#Get Mail accounts from domain
+EMAILSCOUNT=$(plesk bin subscription --info $PLESKSUS |awk ' $1 == "Mailboxes:" { print $2 }')
+printf "FOUND %s emails accounts in %s\n"  $EMAILSCOUNT $PLESKSUS
+MAILMAN=$(plesk bin subscription --info $PLESKSUS |grep "Mailing list service:" | awk '{ print $4 }')
+if [[ $MAILMAN == On ]]; then
+    printf "%sWARN detect this account have MAILMAN enabled, this not be copied%s\n" $RED $COLOROFF
+fi
+if [[ $USER =~ pleskuser ]]; then
+    USER=$(plesk bin subscription --info $PLESKSUS |grep "FTP Login:" | awk '{ print $3 }')
+    printf "SysUser for %s is %s\n" $PLESKSUS $USER
+
+    printf "Check if %s exist in %s\n" $USER $IP
+    $SSH grep -w $USER /etc/passwd
+    CHECK_STATUS $? "CHECK-REMOTE-USER" "NO"
+fi
+printf "Add user %s in %s \n" $USER $IP
+## TODO Ask for email user
+# TODO Get suscription password for now get aleatory
+GEN_PASS
+$SSH ${PANELBIN}v-add-user $USER $PASS "admin@${PLESKSUS}"
+CHECK_STATUS $? "ADD-REMOTE-USER" "yes"
+
+HEVE_DOMAIN $USER $PLESKSUS $FILESIN 
+if [[ $DBSCOUNT -gt 0 ]]; then
+    HEVE_DB $USER $PLESKSUS 
+else
+    printf "%sNo DBS found for %s, skip... %s\n" $YELL $PLESKSUS $COLOROFF
+fi
+
+if [[ $EMAILSCOUNT -gt 0 ]]; then
+    HEVE_MAIL
+else
+    printf "%sNo eMails found for %s, skip... %s\n" $YELL $PLESKSUS $COLOROFF
+fi
+
+
+}
+if [[ ! -d "$BACKUPDIR" ]]; then
+    mkdir -p "BACKUPDIR"
+fi
+# TODO FIX this, works but was original idea
+if [[ $1 == transfer ]];then
+    TRANSFER $PLESKSUS
+elif [[ $1 == restore ]]; then
+    RESTORE $USER
+else
+    help
+fi
