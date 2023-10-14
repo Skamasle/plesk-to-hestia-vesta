@@ -68,6 +68,7 @@ GEN_PASS() {
 
 HEVE_DB() {
 USER=$1
+#We can use plesk db directly here
 PLESKDB="mysql -u admin -p$(cat /etc/psa/.psa.shadow) -N -e"
 mkdir -p $BACKUPDIR/${PLESKSUS}/DBS
 DBS=$(plesk db "select db.name as 'Database',d.name as 'Subscription',c.pname as 'Owner',c.login as 'Customer Username' from data_bases db,domains d,clients c where d.cl_id=c.id and db.dom_id=d.id" | awk -v PLESKSUS=$PLESKSUS '$4 == PLESKSUS { print $2 }')
