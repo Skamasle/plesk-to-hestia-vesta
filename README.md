@@ -13,6 +13,7 @@ THIS SCRIPT IS IN ALPHA YET
 : Clean TMPS
 : Functions to fix configuration file of most common CMS to patch database names issue
 : Something more............ I may update this days with more information
+: Test in vesta
 
 
 **IMPORTANT ABOUT DataBases**
@@ -28,6 +29,8 @@ bash plesk_to_hestia transfer SUBSCRIPTION.DOMAIN.COM HESTIA-IP-SERVER pleskuser
 You need connect both servers with SSH-KEYS, script copy all information for you.
 
 **pleskuser** is literal to say to script use the plesk user suscription 
+
+Tested only in Hestiacp
 
 
 
