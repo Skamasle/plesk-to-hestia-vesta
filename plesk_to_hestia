@@ -79,8 +79,8 @@ do
     # So as we need change database name in remote server we need
     # fix that with sed after I not found any option to remove --databases from db dump ( we can use mysqldump directly )
     plesk db dump -n $DB > $BACKUPDIR/${PLESKSUS}/DBS/${USER}_${DB}
-    sed -i "/^USE.*;$/d" $BACKUPDIR/${PLESKSUS}/DBS/${USER}_${DB}
     CHECK_STATUS $? "DUMP-DATABASE" "YES"
+    sed -i "/^USE.*;$/d" $BACKUPDIR/${PLESKSUS}/DBS/${USER}_${DB}
     # Get user and password for database: 
     # SELECT user FROM mysql.db WHERE db = "$DB";
     DBUSER=$($PLESKDB "SELECT user FROM mysql.db WHERE db = '$DB'";)
