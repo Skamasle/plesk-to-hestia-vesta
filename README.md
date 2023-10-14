@@ -10,6 +10,8 @@ THIS SCRIPT IS IN ALPHA YET
 : Write function to modify configuration file of migrated website.
 : Compress databases ( ZSTD ) before transfer
 : Leave user select hestia user account to migrate suscription, for now it only take same plesk suscription
+: Clean TMPS
+: Functions to fix configuration file of most common CMS to patch database names issue
 : Something more............ I may update this days with more information
 
 
