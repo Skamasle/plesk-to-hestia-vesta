@@ -16,10 +16,12 @@ awk '{ print $1 }' $1 | uniq | while read DOC
                         printf "Found Config File, edit:%s\n" $CONF
                         cat $1 | while read DOC DBOLD DBNEW USEROLD USERNEW 
                         do
-                            sed -i "s/\"$DBOLD\"/\"$DBNEW\"/g" $CONF
+                            sed -i -E "s/\"$DBOLD\"/\"$DBNEW\"/g" $CONF
+                            sed -i -E "s/'$DBOLD'/'$DBNEW'/g" $CONF
                             sed -i "s/\"$USEROLD\"/$USERNEW\"/g" $CONF
+                            sed -i "s/'$USEROLD'/'$USERNEW'/g" $CONF
                         done
-            done
+                    done
         
 
              done
