@@ -15,6 +15,7 @@ THIS SCRIPT IS IN ALPHA YET
 : Something more............ I may update this days with more information
 : Test in vesta
 : Run fix-db-relation automatically
+: ** Need detect when databases have correct prefix or user prefix equal than user this will be compatible with Hestia / Vesta and not need changes. **
 
 
 **IMPORTANT ABOUT DataBases**
@@ -32,6 +33,17 @@ You need connect both servers with SSH-KEYS, script copy all information for you
 **pleskuser** is literal to say to script use the plesk user suscription 
 
 Tested only in Hestiacp
+
+** After Migration**
+
+Script will transfer user and database relation to /root/YOUR_DOMAIN.TLD-hestia-DB-Relation-Fix 
+Remember than prefix database will change we try fix that with fix-db-relation
+
+Just run in destination :
+
+fix-db-relation  /root/YOUR_DOMAIN.TLD-hestia-DB-Relation-Fix 
+
+
 
 
 
