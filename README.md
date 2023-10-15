@@ -14,6 +14,7 @@ THIS SCRIPT IS IN ALPHA YET
 : Functions to fix configuration file of most common CMS to patch database names issue
 : Something more............ I may update this days with more information
 : Test in vesta
+: Run fix-db-relation automatically
 
 
 **IMPORTANT ABOUT DataBases**
