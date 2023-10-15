@@ -1,5 +1,5 @@
 #!/bin/bash
-# Sk-Plesk-Migrator  v0.1.1
+# Sk-Plesk-Migrator  v0.1.2
 # By Maksim Usmanov
 # Run By Your OWN RISK ALPHA RELEASE
 
@@ -126,7 +126,7 @@ This will FIX database name and user in most common CMS
 
 HEVE_MAIL() {
 MAILSIN=/var/qmail/mailnames/
-EMAILS=$(plesk bin mail -l |awk -v PLESKSUS="$PLESKSUS" '$3 ~ "@"domain { print $3 }')
+EMAILS=$(plesk bin mail -l |awk -v PLESKSUS="$PLESKSUS" '$3 ~ "@"PLESKSUS { print $3 }')
 printf "%s\n###########\nStart with eMail accounts\n###########%s\n" $YELL $COLOROFF
 for EMAIL in $EMAILS
 do
