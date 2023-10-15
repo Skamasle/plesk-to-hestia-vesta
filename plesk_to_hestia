@@ -1,9 +1,11 @@
 #!/bin/bash
-# Sk-Plesk-Migrator  v0.1
+# Sk-Plesk-Migrator  v0.1.1
 # By Maksim Usmanov
 # Run By Your OWN RISK ALPHA RELEASE
 
 SSHPORT=22 # TODO need fix $RSYNC line40 appers not working with quotes inside
+# MAXDEPTH Used to find configuration files put to 0 to disable or not search, 
+# increce if have CMS inside directories like prestashop may need 7
 PANEL=hestia
 PANELBIN=/usr/local/${PANEL}/bin/
 # We will create some dirs there, 
@@ -50,7 +52,7 @@ if [[ $STATUS == $CODE ]]; then
 else
     printf "%s.:ERROR:. in %s %s\n" $RED $FUNC $COLOROFF
     if [[ $FUNC == CHECK-REMOTE-USER ]]; then
-        prinf "%sUser %s exists in %s %s \n" $RED $USER $IP $COLOROFF
+        printf "%sUser %s exists in %s %s \n" $RED $USER $IP $COLOROFF
         exit 0
     fi
 fi
@@ -66,11 +68,14 @@ GEN_PASS() {
 
 }
 
+
 HEVE_DB() {
 USER=$1
+FILESIN=$3
 #We can use plesk db directly here
 PLESKDB="mysql -u admin -p$(cat /etc/psa/.psa.shadow) -N -e"
 mkdir -p $BACKUPDIR/${PLESKSUS}/DBS
+#GET List of DBS added in suscription
 DBS=$(plesk db "select db.name as 'Database',d.name as 'Subscription',c.pname as 'Owner',c.login as 'Customer Username' from data_bases db,domains d,clients c where d.cl_id=c.id and db.dom_id=d.id" | awk -v PLESKSUS=$PLESKSUS '$4 == PLESKSUS { print $2 }')
 printf "%s\n###########\nStart Databases Backups\n###########%s\n" $YELL $COLOROFF
 for DB in $DBS
@@ -88,8 +93,9 @@ do
     # TODO User Count easy to do, irrelevant for usage but good for statistics
     DBPASS=$($PLESKDB "SELECT Password FROM mysql.user where User='$DBUSER'";)
     printf "DB='%s_%s' DBUSER='%s_%s' MD5='%s' HOST='localhost' TYPE='mysql' CHARSET='UTF8' U_DISK='0' SUSPENDED='no' TIME='%s' DATE='%s'\n" "$USER" "$DB" "$USER" "$DBUSER" "$DBPASS" "$TIME" "$DATE" >> "$BACKUPDIR/${PLESKSUS}/DBS/db.conf"
-    
+    printf "%s %s %s %s %s\n" "/home/${USER}/web/${PLESKSUS}/public_html" $DB  ${USER}_${DB} ${DBUSER} ${USER}_${DBUSER} >> /root/${PLESKSUS}-${PANEL}-DB-Relation-Fix
 done
+
 printf "%sCopy db.conf to remote%s\n" $GREEN $COLOROFF
 $RSYNC $BACKUPDIR/${PLESKSUS}/DBS/db.conf root@${IP}:/usr/local/${PANEL}/data/users/${USER}/db.conf
 $SSH ${PANELBIN}v-rebuild-databases $USER
@@ -110,6 +116,12 @@ done
 # Need extra rebuild, investigating why with first one password not working
 $SSH ${PANELBIN}v-rebuild-databases $USER
 #### TODO fix most common CMS configuration files..
+printf "%sTransfer DB Relation Files to %s %s\n" $YELL $IP $COLOROFF
+$RSYNC /root/${PLESKSUS}-${PANEL}-DB-Relation-Fix root@${IP}:/root
+printf "%s###################
+DBS migrated, please run  in %s :\n bash fix-db-relation %s
+This will FIX database name and user in most common CMS
+################### %s\n" $RED $IP "/root/${PLESKSUS}-${PANEL}-DB-Relation-Fix" $COLOROFF 
 }
 
 HEVE_MAIL() {
@@ -188,9 +200,10 @@ GEN_PASS
 $SSH ${PANELBIN}v-add-user $USER $PASS "admin@${PLESKSUS}"
 CHECK_STATUS $? "ADD-REMOTE-USER" "yes"
 
-HEVE_DOMAIN $USER $PLESKSUS $FILESIN 
+HEVE_DOMAIN $USER $PLESKSUS 
+
 if [[ $DBSCOUNT -gt 0 ]]; then
-    HEVE_DB $USER $PLESKSUS 
+    HEVE_DB $USER $PLESKSUS $FILESIN
 else
     printf "%sNo DBS found for %s, skip... %s\n" $YELL $PLESKSUS $COLOROFF
 fi
