@@ -1,2 +1,26 @@
 #!/bin/bash
 # This file stored in remote server will fix DB and User relation in most common CMS
+# We try Fix database name in most comun CMS ( Wordpress, prestashop, joomla, drupal, magento, opencat, typo3... )
+# I try to do this compatible with any, just add configuration path to list.
+#TODO : need some test and patches I asume all CMS use doble quotes not tested if DB is inside single quotes
+CONFIGFILES="wp-config.php configuration.php sites/default/settings.php app/etc/env.php  
+             typo3conf/LocalConfiguration.php app/config/parameters.php 
+               config/settings.inc.php config.php"
+awk '{ print $1 }' $1 | uniq | while read DOC
+    do
+        for CONFIGFILE in $CONFIGFILES
+            do  
+                printf "Search for %s\n" $CONFIGFILE
+                /usr/bin/find $DOC -maxdepth 5 |grep $CONFIGFILE | while read CONF
+                    do
+                        printf "Found Config File, edit:%s\n" $CONF
+                        cat $1 | while read DOC DBOLD DBNEW USEROLD USERNEW 
+                        do
+                            sed -i "s/\"$DBOLD\"/\"$DBNEW\"/g" $CONF
+                            sed -i "s/\"$USEROLD\"/$USERNEW\"/g" $CONF
+                        done
+            done
+        
+
+             done
+    done
