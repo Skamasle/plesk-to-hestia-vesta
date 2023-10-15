@@ -11,7 +11,7 @@ awk '{ print $1 }' $1 | uniq | while read DOC
         for CONFIGFILE in $CONFIGFILES
             do  
                 printf "Search for %s\n" $CONFIGFILE
-                /usr/bin/find $DOC -maxdepth 5 |grep $CONFIGFILE | while read CONF
+                /usr/bin/find $DOC -maxdepth 5 |grep /$CONFIGFILE | while read CONF
                     do
                         printf "Found Config File, edit:%s\n" $CONF
                         cat $1 | while read DOC DBOLD DBNEW USEROLD USERNEW 
