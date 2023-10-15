@@ -4,29 +4,20 @@ As SK-CPANEL-IMPORT help people to migrate to free control panel like vestacp an
 THIS SCRIPT IS IN ALPHA YET
 
 **.:TODO:.**
-: TEST TEST AND TEST
+- TEST TEST AND TEST
+- Copy DNS / MX
+- COPY Plesk user / FTP password ( easy to do but I think is less secure, if you migrate need change your password for security ) but May I will do it.
+- Write function to modify configuration file of migrated website.
+- Compress databases ( ZSTD ) before transfer
+- Leave user select hestia user account to migrate suscription, for now it only take same plesk suscription
+- Clean TMPS
+-Functions to fix configuration file of most common CMS to patch database names issue
+- Something more............ I may update this days with more information
+-Test in vesta
+- Run fix-db-relation automatically
+- SUBDOMAINS need some work, plesk list subdomain as subscriptions in some cases.
+- ** Need detect when databases have correct prefix or user prefix equal than user this will be compatible with Hestia / Vesta and not need changes. ** ISSUE DETECTED some plesk may have two databases, USER_databaseHI and databaseHI and this will be a conflict, so we will add prefix to all databases, it needs to be valued 
 
-: Copy DNS / MX
-
-: COPY Plesk user / FTP password ( easy to do but I think is less secure, if you migrate need change your password for security ) but May I will do it.
-
-: Write function to modify configuration file of migrated website.
-
-: Compress databases ( ZSTD ) before transfer
-
-: Leave user select hestia user account to migrate suscription, for now it only take same plesk suscription
-
-: Clean TMPS
-
-: Functions to fix configuration file of most common CMS to patch database names issue
-
-: Something more............ I may update this days with more information
-
-: Test in vesta
-
-: Run fix-db-relation automatically
-
-: ** Need detect when databases have correct prefix or user prefix equal than user this will be compatible with Hestia / Vesta and not need changes. ** ISSUE DETECTED some plesk may have two databases, USER_databaseHI and databaseHI and this will be a conflict, so we will add prefix to all databases, it needs to be valued 
 
 
 **IMPORTANT ABOUT DataBases**
@@ -53,6 +44,10 @@ Remember than prefix database will change we try fix that with fix-db-relation
 Just run in destination :
 
 fix-db-relation  /root/YOUR_DOMAIN.TLD-hestia-DB-Relation-Fix 
+
+** Sub-domains **
+
+Subdomains are not migrated, plesk cant list subdomains with plesk bin subscription if is added as new space, so you need run migration for subdomain as domain and migrator will create new account for it.
 
 
 
