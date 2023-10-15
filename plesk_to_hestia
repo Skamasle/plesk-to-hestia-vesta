@@ -13,7 +13,6 @@ GREEN=$(tput setaf 2)
 RED=$(tput setaf 1)
 YELL=$(tput setaf 3)
 COLOROFF=$(tput sgr0)
-
 TIME=$(date +%T)
 DATE=$(date +%F)
 
@@ -64,6 +63,10 @@ GEN_PASS() {
     PASS=$(echo $PASS)
 
 }
+HEVE_DNS(){
+echo TODO
+}
+
 
 HEVE_DB() {
 USER=$1
@@ -112,12 +115,7 @@ done
 # Need extra rebuild, investigating why with first one password not working
 $SSH ${PANELBIN}v-rebuild-databases $USER
 #### TODO fix most common CMS configuration files..
-printf "%sTransfer DB Relation Files to %s %s\n" $YELL $IP $COLOROFF
-$RSYNC /root/${PLESKSUS}-${PANEL}-DB-Relation-Fix root@${IP}:/root
-printf "%s###################
-DBS migrated, please run  in %s :\n bash fix-db-relation %s
-This will FIX database name and user in most common CMS
-################### %s\n" $RED $IP "/root/${PLESKSUS}-${PANEL}-DB-Relation-Fix" $COLOROFF 
+
 }
 
 HEVE_MAIL() {
@@ -143,17 +141,36 @@ done
 }
 
 HEVE_DOMAIN(){
-printf "%s\n###########\nStart with websites\n###########%s\n" $YELL $COLOROFF
+USER=$1
+DOMAIN=$2
+
 printf "%sAdding domain %s in remote server%s\n" $GREEN $PLESKSUS $COLOROFF
-$SSH ${PANELBIN}v-add-domain $USER $PLESKSUS
+$SSH ${PANELBIN}v-add-domain $USER $DOMAIN
 CHECK_STATUS $? "ADD-REMOTE-DOMAIN" "YES"
 printf "%sCopy Files from %s %s\n" $GREEN $FILESIN $COLOROFF
-$RSYNC $FILESIN/ root@${IP}:/home/${USER}/web/${PLESKSUS}/public_html 2>&1 | 
+$RSYNC $FILESIN/ root@${IP}:/home/${USER}/web/${DOMAIN}/public_html 2>&1 | 
     while read sk_file_dm; do
         sk_sync=$((sk_sync+1))
         echo -en "-- $sk_sync restored files\r"
     done
-    echo " "
+echo " "
+printf "%s \n" "/home/${USER}/web/${DOMAIN}/public_html"  >> /root/${3}-${PANEL}-DB-Relation-Fix
+
+}
+HEVE_SUBS() {
+USER=$1
+DOMAIN=$2
+printf "%s\n###########\nLooking for subdomains\n###########%s\n" $YELL $COLOROFF
+SUBS=$(plesk bin subdomain -l |grep .$DOMAIN )
+for SUB in $SUBS
+    do
+        if plesk bin subscription -l |grep $SUB; then
+            printf "%sSubdomain %s is also a subscription, SKIP... Subscriptions have to be migrated independently %s \n" $RED $SUB $COLOROFF
+        else
+            FILESIN=$(plesk bin subscription --info $SUB |awk ' $1 == "--WWW-Root--:" { print $2 }')
+            HEVE_DOMAIN $USER $SUB $PLESKSUS
+        fi
+    done 
 
 }
 FIX_USER(){
@@ -166,6 +183,8 @@ else
     printf "%s User %s is  valid%s\n" $GREEN $USER $COLOROFF
 fi
 }
+
+
 TRANSFER () {
 if ! plesk bin subscription --list |grep -w $PLESKSUS ; then
     printf "%s.:ERROR:. subscription %s not found in this server %s \n" $RED $PLESKSUS $COLOROFF
@@ -199,7 +218,13 @@ if [[ $USER =~ pleskuser ]]; then
     printf "Check if %s exist in %s\n" $USER $IP
     $SSH grep -w $USER /etc/passwd
     CHECK_STATUS $? "CHECK-REMOTE-USER" "NO"
+else
+    printf "Check if %s exist in %s\n" $USER $IP
+    $SSH grep -w $USER /etc/passwd
+    CHECK_STATUS $? "CHECK-REMOTE-USER" "NO"
 fi
+
+
 printf "Add user %s in %s \n" $USER $IP
 ## TODO Ask for email user
 # TODO Get suscription password for now get aleatory
@@ -207,7 +232,9 @@ GEN_PASS
 $SSH ${PANELBIN}v-add-user $USER $PASS "admin@${PLESKSUS}"
 CHECK_STATUS $? "ADD-REMOTE-USER" "yes"
 
+printf "%s\n###########\nStart with websites\n###########%s\n" $YELL $COLOROFF
 HEVE_DOMAIN $USER $PLESKSUS 
+
 
 if [[ $DBSCOUNT -gt 0 ]]; then
     HEVE_DB $USER $PLESKSUS $FILESIN
@@ -221,6 +248,15 @@ else
     printf "%sNo eMails found for %s, skip... %s\n" $YELL $PLESKSUS $COLOROFF
 fi
 
+HEVE_SUBS $USER $PLESKSUS 
+
+printf "%sTransfer DB Relation Files to %s %s\n" $YELL $IP $COLOROFF
+$RSYNC /root/${PLESKSUS}-${PANEL}-DB-Relation-Fix root@${IP}:/root
+
+printf "%s###################
+DBS migrated, please run fix-db-relation  in %s :\n bash fix-db-relation %s
+This will FIX database name and user in most common CMS
+################### %s\n" $RED $IP "/root/${PLESKSUS}-${PANEL}-DB-Relation-Fix" $COLOROFF 
 
 }
 if [[ ! -d "$BACKUPDIR" ]]; then
