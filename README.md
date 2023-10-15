@@ -15,7 +15,7 @@ THIS SCRIPT IS IN ALPHA YET
 - Something more............ I may update this days with more information
 -Test in vesta
 - Run fix-db-relation automatically
-- SUBDOMAINS need some work, plesk list subdomain as subscriptions in some cases.
+- SUBDOMAINS need some work, plesk list subdomain as subscriptions in some cases. ------ ADDED  in v0.1.3
 - ** Need detect when databases have correct prefix or user prefix equal than user this will be compatible with Hestia / Vesta and not need changes. ** ISSUE DETECTED some plesk may have two databases, USER_databaseHI and databaseHI and this will be a conflict, so we will add prefix to all databases, it needs to be valued 
 
 
