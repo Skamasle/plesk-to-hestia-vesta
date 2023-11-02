@@ -129,7 +129,6 @@ do
     printf "Creating %s\n" $EMAIL
     $SSH "${PANELBIN}v-add-mail-account $USER $PLESKSUS  $USERMAIL $EMAILPASS"
     CHECK_STATUS $? "CREATE-EMAIL-ACCOUNT" "YES"
-    #/home/tr43dsd/mail/barcelonabeach.net/fortls
     $RSYNC ${MAILSIN}${PLESKSUS}/${USERMAIL}/Maildir/ root@${IP}:/home/${USER}/mail/${PLESKSUS}/${USERMAIL}/ 2>&1 | 
     while read sk_file_dm; do
         sk_sync=$((sk_sync+1))
