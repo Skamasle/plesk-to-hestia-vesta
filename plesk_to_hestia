@@ -3,7 +3,7 @@
 # By Maksim Usmanov
 # Run By Your OWN RISK ALPHA RELEASE
 SSHPORT=22 # TODO need fix $RSYNC line40 appers not working with quotes inside
-FIXUSER=NO # This will fix users usr.es_DLSDLS remove [.-_] and chop to 8 characteres
+FIXUSER=NO # This will fix users PREFIX_USER-USER.USER remove [.-_] and chop to 8 characteres
 PANEL=hestia
 PANELBIN=/usr/local/${PANEL}/bin/
 # We will create some dirs there, 
