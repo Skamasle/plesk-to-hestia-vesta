@@ -157,7 +157,33 @@ $RSYNC $FILESIN/ root@${IP}:/home/${USER}/web/${PLESKSUS}/public_html 2>&1 |
     printf "\n"
 
 }
+HEVE_SUBS() {
+USER=$1
+DOMAIN=$2
+printf "%sINFO:%s Looking for subdomains\n" $GREEN $COLOROFF
+SUBS=$(plesk bin subdomain -l |grep .$DOMAIN )
+for SUB in $SUBS
+    do
+        if plesk bin subscription -l |grep $SUB; then
+            printf "%sWARN:%s Subdomain %s is also a subscription, SKIP... Subscriptions have to be migrated independently \n" $YEL $COLOROFF $SUB 
+        else
+            FILESIN=$(plesk bin subscription --info $SUB |awk ' $1 == "--WWW-Root--:" { print $2 }')
+            HEVE_DOMAIN $USER $SUB $PLESKSUS
+        fi
+    done 
 
+}
+
+FIX_USER(){
+USER=$1
+if [[ $USER =~ [._-] ]]; then
+    printf "%s User %s is in valid, will fix it%s\n" $RED $USER $COLOROFF
+    USER=$(echo "$USER" | tr -d '.-_' | cut -c 1-8)
+    printf "%sNEW USER is %s is in valid, will fix it%s\n" $GREEN $USER $COLOROFF
+else
+    printf "%s User %s is  valid%s\n" $GREEN $USER $COLOROFF
+fi
+}
 TRANSFER () {
 if ! plesk bin subscription --list |grep -w $PLESKSUS ; then
     printf "%sERROR:%s subscription %s not found in this server \n" $RED $COLOROFF $PLESKSUS 
@@ -211,6 +237,15 @@ else
     printf "%sWARN:%s No eMails found for %s, skip...\n" $YELL $COLOROFF $PLESKSUS 
 fi
 
+HEVE_SUBS $USER $PLESKSUS 
+
+printf "%sTransfer DB Relation Files to %s %s\n" $YELL $IP $COLOROFF
+$RSYNC /root/${PLESKSUS}-${PANEL}-DB-Relation-Fix root@${IP}:/root
+
+printf "%s###################
+DBS migrated, please run fix-db-relation  in %s :\n bash fix-db-relation %s
+This will FIX database name and user in most common CMS
+################### %s\n" $RED $IP "/root/${PLESKSUS}-${PANEL}-DB-Relation-Fix" $COLOROFF 
 
 }
 if [[ ! -d "$BACKUPDIR" ]]; then
