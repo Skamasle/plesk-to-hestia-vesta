@@ -12,7 +12,7 @@ GREEN=$(tput setaf 2)
 RED=$(tput setaf 1)
 YELL=$(tput setaf 3)
 COLOROFF=$(tput sgr0)
-
+FIX_USER=NO # This chop user to 8 caracteres and remove characters ._-
 TIME=$(date +%T)
 DATE=$(date +%F)
 
@@ -177,11 +177,11 @@ for SUB in $SUBS
 FIX_USER(){
 USER=$1
 if [[ $USER =~ [._-] ]]; then
-    printf "%s User %s is in valid, will fix it%s\n" $RED $USER $COLOROFF
+    printf "%s User %s is in valid, will fix it\n" $RED $COLOROFF $USER 
     USER=$(echo "$USER" | tr -d '.-_' | cut -c 1-8)
-    printf "%sNEW USER is %s is in valid, will fix it%s\n" $GREEN $USER $COLOROFF
+    printf "%sINFO:%s NEW USER is %s is in valid, will fix it\n" $GREEN $COLOROFF $USER 
 else
-    printf "%s User %s is  valid%s\n" $GREEN $USER $COLOROFF
+    printf "%sINFO:%s User %s is valid\n" $GREEN $COLOROFF $USER 
 fi
 }
 TRANSFER () {
@@ -211,7 +211,9 @@ fi
 if [[ $USER =~ pleskuser ]]; then
     USER=$(plesk bin subscription --info $PLESKSUS |grep "FTP Login:" | awk '{ print $3 }')
     printf "%sINFO:%s SysUser for %s is %s\n" $GREEN $COLOROFF $PLESKSUS $USER
-
+    if [[ $FIXUSER =~ ^[Yy][Ee][Ss]$ ]]; then
+        FIX_USER $USER
+    fi
     printf "%sINFO:%s Check if %s exist in %s\n" $GREEN $COLOROFF $USER $IP
     $SSH grep -w $USER /etc/passwd
     CHECK_STATUS $? "CHECK-REMOTE-USER" "NO"
