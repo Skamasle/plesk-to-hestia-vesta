@@ -1,0 +1,2 @@
+0.1.4
+- Fix error when database have more than 1 user, for now we just restore first user, need some checks
